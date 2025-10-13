@@ -8,6 +8,7 @@ import { notFoundHandler } from './middleware/notFoundHandler.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 import notesRoutes from './routes/notesRoutes.js';
+import { errors } from 'celebrate';
 
 const app = express();
 const PORT = process.env.PORT ?? 3030;
@@ -31,7 +32,7 @@ app.get('/test-error', (req, res) => {
 });
 
 app.use(notFoundHandler);
-
+app.use(errors());
 app.use(errorHandler);
 
 await connectMongoDB();
