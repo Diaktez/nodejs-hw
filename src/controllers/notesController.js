@@ -7,31 +7,38 @@ export const getAllNotes = async (req, res) => {
 
   const skip = (page - 1) * perPage;
 
-  const notesQuery = Note.find();
+  // Базовий об’єкт фільтра
+  const filter = {};
 
+  // 🔍 Якщо є пошук — використовуємо $text
   if (search) {
-    notesQuery.where({
-      $or: [
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } },
-      ],
-    });
+    filter.$text = { $search: search };
   }
 
+  // 🏷️ Якщо є фільтр за тегом
   if (tag) {
-    notesQuery.where('tag').eq(tag);
+    filter.tag = tag;
+  }
+
+  // Основний запит з урахуванням пошуку і тегу
+  const notesQuery = Note.find(filter);
+
+  // Якщо є пошук, додаємо сортування за релевантністю
+  if (search) {
+    notesQuery.sort({ score: { $meta: 'textScore' } });
+    notesQuery.select({ score: { $meta: 'textScore' } });
   }
 
   const [totalNotes, notes] = await Promise.all([
-    notesQuery.clone().countDocuments(),
+    Note.countDocuments(filter),
     notesQuery.skip(skip).limit(perPage),
   ]);
 
   const totalPages = Math.ceil(totalNotes / perPage);
 
   res.status(200).json({
-    page,
-    perPage,
+    page: Number(page),
+    perPage: Number(perPage),
     totalNotes,
     totalPages,
     notes,

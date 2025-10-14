@@ -33,7 +33,6 @@ export const createNoteSchema = {
     }),
     tag: Joi.string()
       .valid(...TAGS)
-      .required()
       .messages({
         'string.base': 'Tag must be a string',
         'any.only':
