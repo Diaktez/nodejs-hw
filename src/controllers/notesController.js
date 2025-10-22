@@ -2,60 +2,35 @@ import createHttpError from 'http-errors';
 
 import { Note } from '../models/note.js';
 
-export const getAllNotes = async (req, res, next) => {
-  try {
-    const { page = 1, perPage = 10, search, tag } = req.query;
-    const pageNum = Number(page);
-    const perPageNum = Number(perPage);
-    const skip = (pageNum - 1) * perPageNum;
+export const getAllNotes = async (req, res) => {
+  const { page = 1, perPage = 10, search, tag } = req.query;
 
-    const baseFilter = { userId: req.user._id };
-    if (tag) baseFilter.tag = tag;
+  const skip = (page - 1) * perPage;
 
-    let notes = [];
-    let totalNotes = 0;
+  const notesQuery = Note.find({ userId: req.user._id });
 
-    if (search) {
-      // 1. Пробуем $text
-      const textFilter = { ...baseFilter, $text: { $search: search } };
-      totalNotes = await Note.countDocuments(textFilter);
-
-      if (totalNotes > 0) {
-        notes = await Note.find(textFilter)
-          .sort({ score: { $meta: 'textScore' } })
-          .select({ score: { $meta: 'textScore' } })
-          .skip(skip)
-          .limit(perPageNum);
-      } else {
-        // 2. Пробуем $regex
-        const regexFilter = {
-          ...baseFilter,
-          $or: [
-            { title: { $regex: search, $options: 'i' } },
-            { content: { $regex: search, $options: 'i' } },
-          ],
-        };
-
-        totalNotes = await Note.countDocuments(regexFilter);
-        notes = await Note.find(regexFilter).skip(skip).limit(perPageNum);
-      }
-    } else {
-      totalNotes = await Note.countDocuments(baseFilter);
-      notes = await Note.find(baseFilter).skip(skip).limit(perPageNum);
-    }
-
-    const totalPages = Math.ceil(totalNotes / perPageNum);
-
-    res.status(200).json({
-      page: pageNum,
-      perPage: perPageNum,
-      totalNotes,
-      totalPages,
-      notes,
-    });
-  } catch (error) {
-    next(error);
+  if (search) {
+    notesQuery.where({ $text: { $search: search } });
   }
+
+  if (tag) {
+    notesQuery.where('tag').eq(tag);
+  }
+
+  const [totalNotes, notes] = await Promise.all([
+    notesQuery.clone().countDocuments(),
+    notesQuery.skip(skip).limit(perPage),
+  ]);
+
+  const totalPages = Math.ceil(totalNotes / perPage);
+
+  res.status(200).json({
+    page,
+    perPage,
+    totalNotes,
+    totalPages,
+    notes,
+  });
 };
 
 export const getNoteById = async (req, res, next) => {
