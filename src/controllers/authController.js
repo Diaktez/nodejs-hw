@@ -37,7 +37,7 @@ export const loginUser = async (req, res, next) => {
 
   const user = await User.findOne({ email });
   if (!user) {
-    return next(createHttpError(401, 'User not found'));
+    return next(createHttpError(401, 'Invalid credentials'));
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password);
@@ -45,7 +45,7 @@ export const loginUser = async (req, res, next) => {
     return next(createHttpError(401, 'Invalid credentials'));
   }
 
-  await Session.deleteOne({ userId: user._id });
+  await Session.deleteMany({ userId: user._id });
 
   const newSession = await createSession(user._id);
 
@@ -102,10 +102,10 @@ export const requestResetEmail = async (req, res, next) => {
   const { email } = req.body;
 
   const user = await User.findOne({ email });
-
   if (!user) {
-    next(createHttpError(404, 'User not found'));
-    return;
+    return res.status(200).json({
+      message: 'If this email exists, a reset link has been sent',
+    });
   }
 
   const resetToken = jwt.sign(
@@ -118,7 +118,7 @@ export const requestResetEmail = async (req, res, next) => {
   const templateSource = await fs.readFile(templatePath, 'utf-8');
   const template = handlebars.compile(templateSource);
   const html = template({
-    name: user.username,
+    name: user.username || 'User',
     link: `${process.env.FRONTEND_DOMAIN}/reset-password?token=${resetToken}`,
   });
 
@@ -137,7 +137,7 @@ export const requestResetEmail = async (req, res, next) => {
   }
 
   res.status(200).json({
-    message: 'Password reset email sent successfully',
+    message: 'If this email exists, a reset link has been sent.',
   });
 };
 
